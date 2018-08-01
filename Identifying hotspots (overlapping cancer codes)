@@ -240,6 +240,10 @@ save.image('pancreatic_exon_hotspot.RData')
 #Parallel
 #!/usr/bin/env Rscript
 #Identifying hotspots
+setwd('/.mounts/labs/awadallalab/private/ncheng/ctDNA_test/phase_panel/hotspots/pancreatic/hotspots/all_RDS')
+save = 'pancreatic_hotspot_1.RData'
+PAEN_list = readRDS('PAEN_list.RDS')
+save.image(save)
 hotspots <- function (data = NULL, chr = NULL, position, max = 5000, RI = 30, min_occur = 1) {
   arguments <- as.list(match.call())
   position = eval(arguments$position, data)
