@@ -10,8 +10,6 @@ cd $CANCERDIR
 #Extracting target cancer vcfs
 for f in BRCA*; do mkdir -p $TESTINGDIR/breast_vcfs/$f/vcf;done
 for f in BRCA*/vcf/*.gz; do zcat $f | awk '{if($0 !~ /^#/) print "chr"$0; else print $0}' > $TESTINGDIR/breast_vcfs/$f.txt; done
-for f in PAEN*; do mkdir -p $TESTINGDIR/breast_vcfs/$f/vcf;done
-for f in PAEN*/vcf/*.gz; do zcat $f | awk '{if($0 !~ /^#/) print "chr"$0; else print $0}' > $TESTINGDIR/breast_vcfs/$f.txt; done
 cd $TESTINGDIR/breast_vcfs
 source /.mounts/labs/awadallalab/private/ncheng/softwares/onc_env/bin/activate
 for g in */vcf/*.txt; do oncotator --db-dir /.mounts/labs/awadallalab/private/ncheng/softwares/oncotator_v1_ds_April052016 -v --input_format=VCF --output_format=TCGAMAF $g $g.maf.annotated hg19; done
@@ -74,7 +72,7 @@ for (i in 1:length(cancers)) {
 setwd('/.mounts/labs/awadallalab/private/ncheng/ctDNA_test/phase_panel/hotspots/breast/hotspots/all_RDS')
 require(data.table)
 files = list.files(pattern = '*.-.*')
-dat_list = lapply(files, function (x) PAENRDS(x))
+dat_list = lapply(files, function (x) readRDS(x))
 save = 'breast_hotspot.RData'
 save.image(save)
 
