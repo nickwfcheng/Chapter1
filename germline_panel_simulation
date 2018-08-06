@@ -1,0 +1,57 @@
+nano colorectal_pcawg_germline.sh; nano colorectal_pcawg_germline.R
+
+#colorectal_pcawg_germline.sh
+#!/bin/bash
+source /oicr/local/Modules/default/init/bash
+#Change colorectal to whatever cancer
+WKDIR=/.mounts/labs/awadallalab/private/ncheng/ctDNA_test/phase_panel/germline/colorectal/phased
+TESTINGDIR=$WKDIR/phased
+GERMLINE=/.mounts/labs/awadallalab/private/ncheng/vcfs/pcawg_germline
+ARCH=/.mounts/labs/awadallalab/private/ncheng/vcfs/ARCH
+FILTERDIR=/.mounts/labs/awadallalab/private/ncheng/ctDNA_test/phase_panel/colorectal/phased/phased/filter_files
+PANELDIR=/.mounts/labs/awadallalab/private/ncheng/ctDNA_test/phase_panel/colorectal/phased
+EXACDIR=/.mounts/labs/awadallalab/private/ncheng/vcfs/exac
+module load BEDTools/2.21.0
+module load R/3.4.0
+cd $WKDIR
+mkdir processed_files
+cut -f1,2,3 $PANELDIR/gene_list.txt | sed -e '1d' > phased_gene_panel.bed
+bedtools intersect -a $GERMLINE/pcawg_combined.vcf -b phased_gene_panel.bed | bedtools intersect -a stdin -b $ARCH/arch_variants.bed -v | bedtools intersect -a stdin -b $FILTERDIR/combined_snp_variants.bed -v | bedtools intersect -a stdin -b $EXACDIR/exac_0.01_variants.bed -v > colorectal_panel_germline.vcf
+awk '{if($0 !~ /^#/) print "chr"$0; else print $0}' $GERMLINE/pcawg_germline_sites.vcf | bedtools intersect -header -a stdin -b phased_gene_panel.bed | bedtools intersect -header -a stdin -b $ARCH/arch_variants.bed -v | bedtools intersect -header -a stdin -b $FILTERDIR/combined_snp_variants.bed -v | bedtools intersect -header -a stdin -b $EXACDIR/exac_0.01_variants.bed -v > colorectal_info.tmp.vcf
+sed '149q;d' colorectal_info.tmp.vcf > colorectal_info.vcf
+awk -F $'\t' 'length($4)<2' colorectal_info.tmp.vcf | awk -F $'\t' 'length($5)<2' | sed '/^##/ d' >> colorectal_info.vcf
+source /.mounts/labs/awadallalab/private/ncheng/softwares/onc_env/bin/activate
+oncotator --db-dir /.mounts/labs/awadallalab/private/ncheng/softwares/oncotator_v1_ds_April052016 -v --input_format=VCF --output_format=TCGAMAF  colorectal_info.vcf  colorectal_info.vcf.maf.annotated hg19
+sed '/^#/ d' colorectal_info.vcf.maf.annotated | cut -f1,5,6,7,9,36,38 > colorectal_panel_germline.annotated.txt
+mv colorectal_panel_germline.vcf processed_files/
+mv colorectal_panel_germline.annotated.txt processed_files/
+deactivate
+rm oncotator.log
+cp /.mounts/labs/awadallalab/private/ncheng/ctDNA_test/phase_panel/colorectal/phased/colorectal_phased_gene_list.txt processed_files/
+./colorectal_pcawg_germline.R
+
+
+
+###colorectal_pcawg_germline.R###
+#!/usr/bin/env Rscript
+setwd('processed_files')
+gene_list = read.table('colorectal_phased_gene_list.txt', header = T, sep = '\t', stringsAsFactors = F)[,5]
+germline_list = read.table('colorectal_panel_germline.vcf', sep = '\t', stringsAsFactors=F, header = F)
+germline_annotation = read.table('colorectal_panel_germline.annotated.txt', sep = '\t', stringsAsFactors=F, header = T, quote = "")
+germline_annotation[,2] = paste('chr',germline_annotation[,2], sep = '')
+germline_list = germline_list[,-3] 
+colnames(germline_list)[c(1,2)] = c('chrom','pos')
+germline_annotation = germline_annotation[,c(2,3,1,5,6,7)]
+colnames(germline_annotation) = c('chrom','pos','symbol', 'variant_classification', 'transcript_id', 'exon_number')
+snv_list = merge(germline_annotation, germline_list, by = c('chrom','pos'))
+
+filt_genes <- function(snv_list, gene_list) {
+  tmp1 = snv_list
+  tmp2 = tmp1[tmp1[,3] %in% gene_list,]
+  return(tmp2)
+}
+
+snv_list = filt_genes(snv_list, gene_list)
+write.table(snv_list, 'colorectal_snv_list.txt', row.names = F, quote = F, sep = '\t')
+saveRDS(snv_list, 'colorectal_germ_snv_list.RDS')
+save.image('colorectal_pcawg_germline.RData')
